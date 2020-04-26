@@ -30,6 +30,10 @@ struct Opt {
     #[structopt(default_value = "", short, long, name="SEP")]
     sep: String,
 
+    /// List the available names and their text.
+    #[structopt(short, long)]
+    list: bool,
+
     /// List of names.
     #[structopt(name = "NAME")]
     names: Vec<String>,
@@ -125,47 +129,58 @@ fn main() {
     }
     else { // no options
         let file = kill_or(OPEN, &read_options, &config);
-        let spit: HashMap<String, String> = deserialize_or_kill(file);
-        // if global, then global = empty hashmap else, global = global config 
-        let global: HashMap<String, String> = 
-        if opts.global { HashMap::new() }
+        let mut spit: HashMap<String, String> = deserialize_or_kill(file);
+        if opts.list {
+            let mut vec: Vec<_> = spit.drain().collect();
+            vec.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(&name2));
+            for (name, text) in vec {
+                println!("{}: {}", name, text);
+            }
+        }
         else {
-            dirs::home_dir()
-            .map_or(HashMap::new(),
-            |mut path| {
-                path.push(SPITCONFIG);    
-                read_options.open(path)
-                .map_or(HashMap::new(), 
-                |file| { 
-                    serde_json::from_reader(file).unwrap_or(HashMap::new()) 
+            let spit = spit;
+            // if global, then global = empty hashmap else, global = global config 
+            let global: HashMap<String, String> = 
+            if opts.global { HashMap::new() }
+            else {
+                dirs::home_dir()
+                .map_or(HashMap::new(),
+                |mut path| {
+                    path.push(SPITCONFIG);    
+                    read_options.open(path)
+                    .map_or(HashMap::new(), 
+                    |file| { 
+                        serde_json::from_reader(file).unwrap_or(HashMap::new()) 
+                    })
                 })
-            })
-        };        
+            };        
 
-        let mut output = String::new();
-        for name in opts.names {
-            match spit.get(name.as_str()).or(global.get(name.as_str())) {
-                Some(text) => {
-                    output.push_str(&text);
-                    output.push_str(&opts.sep);
-                },
-                None => 
-                if opts.pass { 
-                    output.push_str(&name);
-                    output.push_str(&opts.sep);
-                    if opts.warn { // pass and warn = out and warn
-                        eprintln!("Couldn't find {}", name)
+            let mut output = String::new();
+            for name in opts.names {
+                match spit.get(name.as_str()).or(global.get(name.as_str())) {
+                    Some(text) => {
+                        output.push_str(&text);
+                        output.push_str(&opts.sep);
+                    },
+                    None => 
+                    if opts.pass { 
+                        output.push_str(&name);
+                        output.push_str(&opts.sep);
+                        if opts.warn { // pass and warn = out and warn
+                            eprintln!("Couldn't find {}", name)
+                        }
+                        // pass and no warn = only out
                     }
-                    // pass and no warn = only out
-                }
-                else { 
-                    eprintln!("Couldn't find {}", name); // no pass and warn = only warn
-                    if !opts.warn { // no pass and no warn = quit
-                        std::process::exit(1)
+                    else { 
+                        eprintln!("Couldn't find {}", name); // no pass and warn = only warn
+                        if !opts.warn { // no pass and no warn = quit
+                            std::process::exit(1)
+                        }
                     }
                 }
             }
+            print!("{}", output);
         }
-        print!("{}", output);
+
     }
 }
