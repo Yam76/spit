@@ -11,11 +11,11 @@ const OPEN: &'static str = "open";
 /// Abbreviate frequently typed phrases.
 struct Opt {
     /// Create a new config file.
-    #[structopt(long, conflicts_with("copy"))]
+    #[structopt(short, long, conflicts_with("copy"))]
     init: bool,
 
     /// Copy another config file in FOLDER.
-    #[structopt(long, name = "FOLDER", conflicts_with("init"))]
+    #[structopt(short, long, name = "FOLDER", conflicts_with("init"))]
     copy: Option<PathBuf>,
 
     /// All actions use the global instead of the local config file.
