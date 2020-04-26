@@ -7,6 +7,7 @@ const SPITCONFIG: &'static str = ".spitconfig";
 const CREATE: &'static str = "create";
 const OPEN: &'static str = "open";
 
+
 #[derive(StructOpt)]
 /// Abbreviate frequently typed phrases.
 struct Opt {
@@ -74,6 +75,34 @@ fn serialize_or_kill(file: std::fs::File, map: &HashMap<String, String>) {
     }
 }
 
+fn spit_out(spit: HashMap<String, String>, global: HashMap<String, String>, opts: Opt) {
+    let mut output = String::new();
+    for name in opts.names {
+        match spit.get(name.as_str()).or(global.get(name.as_str())) {
+            Some(text) => {
+                output.push_str(&text);
+                output.push_str(&opts.sep);
+            },
+            None => 
+            if opts.pass { 
+                output.push_str(&name);
+                output.push_str(&opts.sep);
+                if opts.warn { // pass and warn = out and warn
+                    eprintln!("Couldn't find {}", name)
+                }
+                // pass and no warn = only out
+            }
+            else { 
+                eprintln!("Couldn't find {}", name); // no pass and warn = only warn
+                if !opts.warn { // no pass and no warn = quit
+                    std::process::exit(1)
+                }
+            }
+        }
+    }
+    print!("{}", output);
+}
+
 fn main() {
     let opts = Opt::from_args();
     let read_options = {
@@ -138,7 +167,6 @@ fn main() {
             }
         }
         else {
-            let spit = spit;
             // if global, then global = empty hashmap else, global = global config 
             let global: HashMap<String, String> = 
             if opts.global { HashMap::new() }
@@ -154,32 +182,7 @@ fn main() {
                     })
                 })
             };        
-
-            let mut output = String::new();
-            for name in opts.names {
-                match spit.get(name.as_str()).or(global.get(name.as_str())) {
-                    Some(text) => {
-                        output.push_str(&text);
-                        output.push_str(&opts.sep);
-                    },
-                    None => 
-                    if opts.pass { 
-                        output.push_str(&name);
-                        output.push_str(&opts.sep);
-                        if opts.warn { // pass and warn = out and warn
-                            eprintln!("Couldn't find {}", name)
-                        }
-                        // pass and no warn = only out
-                    }
-                    else { 
-                        eprintln!("Couldn't find {}", name); // no pass and warn = only warn
-                        if !opts.warn { // no pass and no warn = quit
-                            std::process::exit(1)
-                        }
-                    }
-                }
-            }
-            print!("{}", output);
+            spit_out(spit, global, opts);
         }
 
     }
